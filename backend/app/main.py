@@ -7,6 +7,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 
 from app.auth import verify_api_key
 from app.graph import agent_graph
+from app.redis_client import load_session, save_session
 
 app = FastAPI(title="AI Agent Backend", description="Backend API for AI Agent", version="1.0.0")
 
@@ -40,12 +41,16 @@ async def health_check():
     dependencies=[Depends(verify_api_key)]
 )
 async def run_agent(payload: AgentRunRequest):
-
-    initial_state = {
-        "messages": [HumanMessage(content=payload.prompt)],
-        "iteration_count": 0,
-        "current_tool_call": None,
-    }
+    existing = load_session(payload.session_id)
+    if existing:
+        initial_state = existing
+        initial_state["messages"].append(HumanMessage(content=payload.prompt))
+    else:
+        initial_state = {
+            "messages": [HumanMessage(content=payload.prompt)],
+            "iteration_count": 0,
+            "current_tool_call": None,
+        }
     
     try:
         final_state = await asyncio.wait_for(
@@ -56,6 +61,8 @@ async def run_agent(payload: AgentRunRequest):
         raise HTTPException(status_code=504, detail="Agent execution timed out")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent execution failed: {str(e)}")
+    
+    save_session(payload.session_id, final_state)
     
     execution_steps = [
         m.content for m in final_state["messages"] if isinstance(m, ToolMessage)
