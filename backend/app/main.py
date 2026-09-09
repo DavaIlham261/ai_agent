@@ -1,10 +1,11 @@
 import asyncio
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, ToolMessage
 
+from app.auth import verify_api_key
 from app.graph import agent_graph
 
 app = FastAPI(title="AI Agent Backend", description="Backend API for AI Agent", version="1.0.0")
@@ -33,7 +34,11 @@ async def validation_exception_handler(request, exc):
 async def health_check():
     return {"status": "OK"}
 
-@app.post("/api/v1/agent/run", response_model=AgentRunResponse)
+@app.post(
+    "/api/v1/agent/run",
+    response_model=AgentRunResponse,
+    dependencies=[Depends(verify_api_key)]
+)
 async def run_agent(payload: AgentRunRequest):
 
     initial_state = {
