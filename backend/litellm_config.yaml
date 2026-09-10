@@ -1,0 +1,20 @@
+model_list:
+  - model_name: groq-qwen3.6-27b
+    litellm_params:
+      model: groq/qwen/qwen3.6-27b
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: groq-qwen3.8-27b
+    litellm_params:
+      model: groq/qwen/qwen3.8-27b
+      api_key: os.environ/GROQ_API_KEY
+  - model_name: nex-n2.5-pro
+    litellm_params:
+      model: openrouter/nex-agi/nex-n2.5-pro:free
+      api_key: os.environ/OPENROUTER_API_KEY
+  - model_name: nex-n2.5-mini
+    litellm_params:
+      model: openrouter/nex-agi/nex-n2.5-mini:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
