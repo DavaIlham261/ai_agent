@@ -1,0 +1,45 @@
+services:
+  backend:
+    build: .
+    container_name: agent-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - LITELLM_BASE_URL=http://litellm:4000
+    depends_on:
+      - redis
+      - litellm
+    mem_limit: "1500m"          # SKPL 3.1: hard limit RAM 1.5GB
+    networks:
+      - agent-net
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm-proxy
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml
+    env_file:
+      - .env
+    ports:
+      - "4000:4000"    # opsional — boleh dilepas nanti kalau tidak perlu diakses dari luar backend
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    networks:
+      - agent-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: agent-redis
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    driver: bridge
+    
+
