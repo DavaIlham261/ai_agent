@@ -4,6 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, ToolMessage
+from app.mcp_client import fetch_mcp_tools, MCPUnreachableError
 
 from app.auth import verify_api_key
 from app.graph import agent_graph
@@ -49,6 +50,11 @@ async def run_agent(payload: AgentRunRequest):
             status_code=400,
             detail=f"project_id tidak terdaftar: {payload.project_id}",
         )
+    
+    try:
+        tools_schema = await fetch_mcp_tools(project, payload.project_id)
+    except MCPUnreachableError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
     existing = load_session(payload.session_id)
     if existing:
@@ -60,16 +66,27 @@ async def run_agent(payload: AgentRunRequest):
             "iteration_count": 0,
             "current_tool_call": None,
         }
-    
+
+    run_config = {
+        "configurable": {
+            "tools_schema": tools_schema,
+            "project": project,
+            "project_id": payload.project_id,
+            "session_id": payload.session_id,
+        }
+    }
+
     try:
         final_state = await asyncio.wait_for(
-            asyncio.to_thread(agent_graph.invoke, initial_state),
-            timeout=60
+            agent_graph.ainvoke(initial_state, config=run_config),
+            timeout=60,
         )
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="Agent execution timed out")
+    except MCPUnreachableError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Agent execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Agent execution failed: {e}")
     
     save_session(payload.session_id, final_state)
     

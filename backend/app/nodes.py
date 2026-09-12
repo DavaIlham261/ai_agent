@@ -2,39 +2,19 @@ import json
 import os
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-from openai import OpenAI
+from langchain_core.runnables import RunnableConfig
+from openai import AsyncOpenAI
 
 from app.agent_state import AgentState
+from app.mcp_client import call_mcp_tool
 
 MAX_ITERATIONS = 5
 
-client = OpenAI(
+client = AsyncOpenAI(
     base_url=os.getenv("LITELLM_BASE_URL", "http://localhost:4000"),
     api_key=os.getenv("LITELLM_MASTER_KEY"),
 )
 MODEL_NAME = os.getenv("LITELLM_MODEL", "groq-llama-3.3-70b")
-
-
-def dummy_echo_tool(text: str) -> str:
-    return f"echo: {text}"
-
-
-TOOLS = {"dummy_echo_tool": dummy_echo_tool}
-
-TOOLS_SCHEMA = [
-    {
-        "type": "function",
-        "function": {
-            "name": "dummy_echo_tool",
-            "description": "Mengembalikan teks yang sama persis seperti input. Dipakai untuk uji coba tool-calling.",
-            "parameters": {
-                "type": "object",
-                "properties": {"text": {"type": "string"}},
-                "required": ["text"],
-            },
-        },
-    }
-]
 
 
 def _to_openai_messages(messages):
@@ -61,11 +41,13 @@ def _to_openai_messages(messages):
     return result
 
 
-def llm_reasoning_node(state: AgentState) -> dict:
-    response = client.chat.completions.create(
+async def llm_reasoning_node(state: AgentState, config: RunnableConfig) -> dict:
+    tools_schema = config["configurable"]["tools_schema"]
+
+    response = await client.chat.completions.create(
         model=MODEL_NAME,
         messages=_to_openai_messages(state["messages"]),
-        tools=TOOLS_SCHEMA,
+        tools=tools_schema,
     )
     choice = response.choices[0].message
 
@@ -82,16 +64,24 @@ def llm_reasoning_node(state: AgentState) -> dict:
     return {"messages": [ai_msg], "current_tool_call": None}
 
 
-def tool_executor_node(state: AgentState) -> dict:
+async def tool_executor_node(state: AgentState, config: RunnableConfig) -> dict:
+    project = config["configurable"]["project"]
+    project_id = config["configurable"]["project_id"]
+
     tool_call = state["current_tool_call"]
     tool_call_id = state["messages"][-1].tool_calls[0]["id"]
-    try:
-        func = TOOLS[tool_call["name"]]
-        result = func(**tool_call["args"])
-        tool_msg = ToolMessage(content=str(result), tool_call_id=tool_call_id)
-    except Exception as e:
-        tool_msg = ToolMessage(content=f"Error: {str(e)}", tool_call_id=tool_call_id)
 
+    tool_args = dict(tool_call["args"])
+    if tool_call["name"] in ("write_file", "patch_file"):
+        # session_id perlu ikut supaya pesan commit git sesuai SKPL-F06
+        tool_args["session_id"] = config["configurable"].get("session_id", "unknown")
+
+    # MCPUnreachableError SENGAJA tidak ditangkap di sini -> dibiarkan menjalar
+    # ke endpoint FastAPI, supaya langsung jadi error response yang jelas (SKPL-NF07),
+    # bukan diam-diam masuk lagi ke LLM_Reasoning.
+    result_text = await call_mcp_tool(project, project_id, tool_call["name"], tool_args)
+
+    tool_msg = ToolMessage(content=result_text, tool_call_id=tool_call_id)
     return {
         "messages": [tool_msg],
         "iteration_count": state["iteration_count"] + 1,
