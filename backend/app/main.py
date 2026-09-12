@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from app.auth import verify_api_key
 from app.graph import agent_graph
 from app.redis_client import load_session, save_session
+from app.projects import get_project
 
 app = FastAPI(title="AI Agent Backend", description="Backend API for AI Agent", version="1.0.0")
 
@@ -15,6 +16,7 @@ app = FastAPI(title="AI Agent Backend", description="Backend API for AI Agent", 
 class AgentRunRequest(BaseModel):
     prompt: str = Field(..., min_length=1)
     session_id: str = Field(..., min_length=1)
+    project_id: str = Field(..., min_length=1)
 
 class AgentRunResponse(BaseModel):
     session_id: str
@@ -41,6 +43,13 @@ async def health_check():
     dependencies=[Depends(verify_api_key)]
 )
 async def run_agent(payload: AgentRunRequest):
+    project = get_project(payload.project_id)
+    if project is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"project_id tidak terdaftar: {payload.project_id}",
+        )
+
     existing = load_session(payload.session_id)
     if existing:
         initial_state = existing

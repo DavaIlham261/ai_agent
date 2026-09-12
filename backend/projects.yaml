@@ -1,0 +1,5 @@
+projects:
+  proyek-utama:
+    tailscale_ip: "100.121.100.110"    # ganti dengan IP tailscale laptopmu, cek `tailscale status`
+    port: 8100
+    root_path: "/app/workspace"  # cuma dokumentasi—pembatasan asli ada di sisi MCP Server-mu

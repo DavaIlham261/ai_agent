@@ -9,10 +9,13 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - LITELLM_BASE_URL=http://litellm:4000
+      - PROJECTS_FILES=/app/projects.yaml
+    volumes:
+      - ./projects.yaml:/app/projects.yaml
     depends_on:
       - redis
       - litellm
-    mem_limit: "1500m"          # SKPL 3.1: hard limit RAM 1.5GB
+    mem_limit: "1500m"
     networks:
       - agent-net
 
