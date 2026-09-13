@@ -1,4 +1,6 @@
 import asyncio
+import httpx
+import os
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -9,7 +11,8 @@ from app.mcp_client import fetch_mcp_tools, MCPUnreachableError
 from app.auth import verify_api_key
 from app.graph import agent_graph
 from app.redis_client import load_session, save_session
-from app.projects import get_project
+from app.projects import PROJECTS, get_project
+from app.mcp_client import fetch_mcp_tools, MCPUnreachableError
 
 app = FastAPI(title="AI Agent Backend", description="Backend API for AI Agent", version="1.0.0")
 
@@ -33,10 +36,36 @@ async def validation_exception_handler(request, exc):
         content={"detail": exc.errors()}
     )
 
+LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "http://localhost:4000")
+
+
+async def check_litellm() -> str:
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(f"{LITELLM_BASE_URL}/health/liveliness")
+        return "ok" if resp.status_code == 200 else "unreachable"
+    except Exception:
+        return "unreachable"
+
+
+async def check_mcp_server(project_id: str, project: dict) -> str:
+    try:
+        await fetch_mcp_tools(project, project_id)
+        return "ok"
+    except MCPUnreachableError:
+        return "unreachable"
+
 
 @app.get("/health")
 async def health_check():
-    return {"status": "OK"}
+    litellm_status = await check_litellm()
+
+    mcp_results = await asyncio.gather(
+        *[check_mcp_server(pid, p) for pid, p in PROJECTS.items()]
+    )
+    mcp_status = dict(zip(PROJECTS.keys(), mcp_results))
+
+    return {"api": "ok", "litellm": litellm_status, "mcp_servers": mcp_status}
 
 @app.post(
     "/api/v1/agent/run",

@@ -27,11 +27,15 @@ services:
       - ./litellm_config.yaml:/app/config.yaml
     env_file:
       - .env
+    environment:
+      - DATABASE_URL=postgresql://litellm:${LITELLM_DB_PASSWORD}@litellm-db:5432/litellm
     ports:
       - "4000:4000"    # opsional — boleh dilepas nanti kalau tidak perlu diakses dari luar backend
     dns:
       - 8.8.8.8
       - 1.1.1.1
+    depends_on:
+      - litellm-db
     networks:
       - agent-net
 
@@ -40,6 +44,21 @@ services:
     container_name: agent-redis
     networks:
       - agent-net
+
+  litellm-db:
+    image: postgres:16-alpine
+    container_name: litellm-db
+    environment:
+      - POSTGRES_USER=litellm
+      - POSTGRES_PASSWORD=${LITELLM_DB_PASSWORD}
+      - POSTGRES_DB=litellm
+    volumes:
+      - litellm_db_data:/var/lib/postgresql/data
+    networks:
+      - agent-net
+
+volumes:
+  litellm_db_data:
 
 networks:
   agent-net:
