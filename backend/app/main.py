@@ -1,6 +1,8 @@
 import asyncio
 import httpx
 import os
+import logging
+import time
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -14,6 +16,7 @@ from app.redis_client import load_session, save_session
 from app.projects import PROJECTS, get_project
 from app.mcp_client import fetch_mcp_tools, MCPUnreachableError
 
+logger = logging.getLogger("agent")
 app = FastAPI(title="AI Agent Backend", description="Backend API for AI Agent", version="1.0.0")
 
 
@@ -105,17 +108,27 @@ async def run_agent(payload: AgentRunRequest):
         }
     }
 
+    t0 = time.monotonic()
     try:
         final_state = await asyncio.wait_for(
             agent_graph.ainvoke(initial_state, config=run_config),
             timeout=60,
         )
     except asyncio.TimeoutError:
+        logger.warning(
+            "TIMEOUT SKPL-F01 | session=%s | elapsed=%.1fs", payload.session_id, time.monotonic() - t0
+        )
         raise HTTPException(status_code=504, detail="Agent execution timed out")
     except MCPUnreachableError as e:
         raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent execution failed: {e}")
+    
+    logger.info(
+        "Request selesai | session=%s | elapsed=%.1fs | iterasi_akhir=%s",
+        payload.session_id, time.monotonic() - t0, final_state["iteration_count"],
+    )
+
     
     save_session(payload.session_id, final_state)
     

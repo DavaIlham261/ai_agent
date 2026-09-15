@@ -1,5 +1,7 @@
 import json
 import os
+import logging
+import time
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -8,13 +10,17 @@ from openai import AsyncOpenAI
 from app.agent_state import AgentState
 from app.mcp_client import call_mcp_tool
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("agent")
+
 MAX_ITERATIONS = 5
+MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))
+MODEL_NAME = os.getenv("LITELLM_MODEL", "groq-llama-3.3-70b")
 
 client = AsyncOpenAI(
     base_url=os.getenv("LITELLM_BASE_URL", "http://localhost:4000"),
     api_key=os.getenv("LITELLM_MASTER_KEY"),
 )
-MODEL_NAME = os.getenv("LITELLM_MODEL", "groq-llama-3.3-70b")
 
 
 def _to_openai_messages(messages):
@@ -44,25 +50,35 @@ def _to_openai_messages(messages):
 async def llm_reasoning_node(state: AgentState, config: RunnableConfig) -> dict:
     tools_schema = config["configurable"]["tools_schema"]
 
+    t0 = time.monotonic()
     response = await client.chat.completions.create(
         model=MODEL_NAME,
         messages=_to_openai_messages(state["messages"]),
         tools=tools_schema,
+        max_tokens=MAX_TOKENS,
     )
-    choice = response.choices[0].message
+    elapsed = time.monotonic() - t0
 
-    if choice.tool_calls:
-        tc = choice.tool_calls[0]
+    choice = response.choices[0]
+    logger.info(
+        "LLM_Reasoning | iterasi=%s | finish_reason=%s | waktu=%.1fs",
+        state["iteration_count"], choice.finish_reason, elapsed,
+    )
+
+    if choice.message.tool_calls:
+        tc = choice.message.tool_calls[0]
         tool_call = {"name": tc.function.name, "args": json.loads(tc.function.arguments)}
         ai_msg = AIMessage(
-            content=choice.content or "",
+            content=choice.message.content or "",
             tool_calls=[{"id": tc.id, "name": tc.function.name, "args": tool_call["args"]}],
         )
         return {"messages": [ai_msg], "current_tool_call": tool_call}
 
-    ai_msg = AIMessage(content=choice.content or "")
-    return {"messages": [ai_msg], "current_tool_call": None}
+    if choice.finish_reason == "length":
+        logger.warning("Jawaban KEHABISAN TOKEN (finish_reason=length) pada iterasi=%s", state["iteration_count"])
 
+    ai_msg = AIMessage(content=choice.message.content or "")
+    return {"messages": [ai_msg], "current_tool_call": None}
 
 async def tool_executor_node(state: AgentState, config: RunnableConfig) -> dict:
     project = config["configurable"]["project"]
@@ -86,3 +102,21 @@ async def tool_executor_node(state: AgentState, config: RunnableConfig) -> dict:
         "messages": [tool_msg],
         "iteration_count": state["iteration_count"] + 1,
     }
+    
+async def force_finalize_node(state: AgentState, config: RunnableConfig) -> dict:
+    logger.warning("Force_Finalize DIPICU | iterasi_terakhir=%s", state["iteration_count"])
+
+    messages = _to_openai_messages(state["messages"])
+    messages.append({
+        "role": "user",
+        "content": (
+            "Batas maksimal langkah tercapai. Berikan jawaban akhir berdasarkan "
+            "informasi yang sudah kamu kumpulkan sejauh ini, tanpa memanggil tool lagi."
+        ),
+    })
+    response = await client.chat.completions.create(model=MODEL_NAME, messages=messages, max_tokens=MAX_TOKENS)
+    choice = response.choices[0]
+    logger.info("Force_Finalize selesai | finish_reason=%s", choice.finish_reason)
+
+    content = choice.message.content or "(Batas iterasi tercapai, tidak ada jawaban tersedia.)"
+    return {"messages": [AIMessage(content=content)], "current_tool_call": None}
