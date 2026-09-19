@@ -112,7 +112,7 @@ async def run_agent(payload: AgentRunRequest):
     try:
         final_state = await asyncio.wait_for(
             agent_graph.ainvoke(initial_state, config=run_config),
-            timeout=60,
+            timeout=300,
         )
     except asyncio.TimeoutError:
         logger.warning(

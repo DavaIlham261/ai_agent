@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import logging
@@ -13,9 +14,19 @@ from app.mcp_client import call_mcp_tool
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent")
 
-MAX_ITERATIONS = 5
+MAX_ITERATIONS = 12
+LLM_CALL_TIMEOUT_SECONDS = 30
 MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))
 MODEL_NAME = os.getenv("LITELLM_MODEL", "groq-llama-3.3-70b")
+
+SYSTEM_PROMPT = (
+    "Kamu adalah AI coding agent otonom. Kalau diminta membuat file besar "
+    "(misal HTML/CSS lengkap), JANGAN coba tulis semuanya sekaligus lewat write_file "
+    "dalam satu panggilan. Pecah jadi beberapa bagian logis (misal: head+navbar, "
+    "hero section, konten utama, footer) dan tulis bertahap: gunakan write_file "
+    "untuk bagian pertama, lalu append_file berulang kali untuk bagian berikutnya."
+)
+
 
 client = AsyncOpenAI(
     base_url=os.getenv("LITELLM_BASE_URL", "http://localhost:4000"),
@@ -50,13 +61,19 @@ def _to_openai_messages(messages):
 async def llm_reasoning_node(state: AgentState, config: RunnableConfig) -> dict:
     tools_schema = config["configurable"]["tools_schema"]
 
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + _to_openai_messages(state["messages"])
     t0 = time.monotonic()
-    response = await client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=_to_openai_messages(state["messages"]),
-        tools=tools_schema,
-        max_tokens=MAX_TOKENS,
+    
+    response = await asyncio.wait_for(
+        client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            tools=tools_schema,
+            max_tokens=MAX_TOKENS,
+        ),
+        timeout=LLM_CALL_TIMEOUT_SECONDS
     )
+    
     elapsed = time.monotonic() - t0
 
     choice = response.choices[0]
@@ -88,10 +105,8 @@ async def tool_executor_node(state: AgentState, config: RunnableConfig) -> dict:
     tool_call_id = state["messages"][-1].tool_calls[0]["id"]
 
     tool_args = dict(tool_call["args"])
-    if tool_call["name"] in ("write_file", "patch_file"):
-        # session_id perlu ikut supaya pesan commit git sesuai SKPL-F06
+    if tool_call["name"] in ("write_file", "patch_file", "append_file"):
         tool_args["session_id"] = config["configurable"].get("session_id", "unknown")
-
     # MCPUnreachableError SENGAJA tidak ditangkap di sini -> dibiarkan menjalar
     # ke endpoint FastAPI, supaya langsung jadi error response yang jelas (SKPL-NF07),
     # bukan diam-diam masuk lagi ke LLM_Reasoning.

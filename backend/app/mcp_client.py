@@ -4,7 +4,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 MCP_CONNECT_TIMEOUT_SECONDS = 5  # SKPL-NF07: terpisah dari timeout 60 detik keseluruhan (SKPL-F01)
-
+MCP_CALL_TIMEOUT_SECONDS = 60
 
 class MCPUnreachableError(Exception):
     pass
@@ -44,10 +44,11 @@ async def fetch_mcp_tools(project: dict, project_id: str) -> list[dict]:
 async def call_mcp_tool(project: dict, project_id: str, tool_name: str, tool_args: dict) -> str:
     url = _mcp_url(project)
     try:
-        async with asyncio.timeout(MCP_CONNECT_TIMEOUT_SECONDS):
-            async with streamablehttp_client(url) as (read, write, _):
-                async with ClientSession(read, write) as session:
+        async with streamablehttp_client(url) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                async with asyncio.timeout(MCP_CONNECT_TIMEOUT_SECONDS):
                     await session.initialize()
+                async with asyncio.timeout(MCP_CALL_TIMEOUT_SECONDS):
                     result = await session.call_tool(tool_name, tool_args)
     except Exception as e:
         raise MCPUnreachableError(

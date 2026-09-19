@@ -1,20 +1,26 @@
 model_list:
-  - model_name: groq-qwen3.6-27b
+  - model_name: agent-model
     litellm_params:
-      model: groq/qwen/qwen3.6-27b
+      model: groq/openai/gpt-oss-120b
       api_key: os.environ/GROQ_API_KEY
-  - model_name: groq-qwen3.8-27b
+  - model_name: agent-model
     litellm_params:
       model: groq/qwen/qwen3.8-27b
       api_key: os.environ/GROQ_API_KEY
-  - model_name: nex-n2.5-pro
+  - model_name: agent-model
     litellm_params:
       model: openrouter/nex-agi/nex-n2.5-pro:free
       api_key: os.environ/OPENROUTER_API_KEY
-  - model_name: nex-n2.5-mini
+  - model_name: agent-model
     litellm_params:
       model: openrouter/nex-agi/nex-n2.5-mini:free
       api_key: os.environ/OPENROUTER_API_KEY
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  allowed_fails: 1
+  cooldown_time: 30
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
