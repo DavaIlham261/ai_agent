@@ -14,19 +14,26 @@ r = redis.from_url(REDIS_URL, decode_responses=True)
 
 def load_session(session_id: str) -> dict | None:
     raw = r.get(f"session:{session_id}")
-    if raw is None: return None
+    if raw is None:
+        return None
     data = json.loads(raw)
-    
     return {
         "messages": messages_from_dict(data["messages"]),
         "iteration_count": data["iteration_count"],
         "current_tool_call": data["current_tool_call"],
+        "plan": data.get("plan"),
+        "current_step_index": data.get("current_step_index", 0),
+        "awaiting_confirmation": data.get("awaiting_confirmation", False),
     }
 
-def save_session(session_id:str, state: dict) -> None:
+
+def save_session(session_id: str, state: dict) -> None:
     payload = json.dumps({
         "messages": messages_to_dict(state["messages"]),
         "iteration_count": state["iteration_count"],
         "current_tool_call": state["current_tool_call"],
+        "plan": state.get("plan"),
+        "current_step_index": state.get("current_step_index", 0),
+        "awaiting_confirmation": state.get("awaiting_confirmation", False),
     })
     r.set(f"session:{session_id}", payload, ex=SESSION_TTL_SECONDS)

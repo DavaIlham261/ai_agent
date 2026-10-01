@@ -8,13 +8,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, ToolMessage
-from app.mcp_client import fetch_mcp_tools, MCPUnreachableError
 
 from app.auth import verify_api_key
 from app.graph import agent_graph
 from app.redis_client import load_session, save_session
 from app.projects import PROJECTS, get_project
 from app.mcp_client import fetch_mcp_tools, MCPUnreachableError
+from app.nodes import LOCAL_TOOLS_SCHEMA, NodeTimeoutError
 
 logger = logging.getLogger("agent")
 app = FastAPI(title="AI Agent Backend", description="Backend API for AI Agent", version="1.0.0")
@@ -88,15 +88,21 @@ async def run_agent(payload: AgentRunRequest):
     except MCPUnreachableError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
+    tools_schema = tools_schema + LOCAL_TOOLS_SCHEMA
+
     existing = load_session(payload.session_id)
     if existing:
         initial_state = existing
         initial_state["messages"].append(HumanMessage(content=payload.prompt))
+        initial_state["await_confirmation"] = False
     else:
         initial_state = {
             "messages": [HumanMessage(content=payload.prompt)],
             "iteration_count": 0,
             "current_tool_call": None,
+            "plan": None,
+            "current_step_index": 0,
+            "await_confirmation": False,
         }
 
     run_config = {
@@ -109,33 +115,35 @@ async def run_agent(payload: AgentRunRequest):
     }
 
     t0 = time.monotonic()
+    final_state = initial_state
     try:
-        final_state = await asyncio.wait_for(
-            agent_graph.ainvoke(initial_state, config=run_config),
-            timeout=300,
-        )
+        async with asyncio.timeout(600):
+            async for state_chunk in agent_graph.astream(initial_state, config=run_config, stream_mode="values"):
+                final_state = state_chunk
+                save_session(payload.session_id, final_state)   # checkpoint tiap node selesai
     except asyncio.TimeoutError:
         logger.warning(
-            "TIMEOUT SKPL-F01 | session=%s | elapsed=%.1fs", payload.session_id, time.monotonic() - t0
+            "TIMEOUT GLOBAL | session=%s | elapsed=%.1fs", payload.session_id, time.monotonic() - t0
         )
-        raise HTTPException(status_code=504, detail="Agent execution timed out")
+        raise HTTPException(
+            status_code=504,
+            detail="Agent execution timed out (batas total 600 detik) — progres sudah tersimpan, lanjut lagi dengan 'lanjut'",
+        )
+    except NodeTimeoutError as e:
+        logger.warning("Node timeout | session=%s | %s", payload.session_id, e)
+        raise HTTPException(
+            status_code=504,
+            detail=f"Timeout pada satu langkah spesifik: {e} — progres sudah tersimpan, lanjut lagi dengan 'lanjut'",
+        )
     except MCPUnreachableError as e:
         raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent execution failed: {e}")
-    
-    logger.info(
-        "Request selesai | session=%s | elapsed=%.1fs | iterasi_akhir=%s",
-        payload.session_id, time.monotonic() - t0, final_state["iteration_count"],
-    )
 
-    
-    save_session(payload.session_id, final_state)
-    
+    # final_state sudah tersimpan tiap langkah lewat loop di atas — tidak perlu save_session() lagi di sini
     execution_steps = [
         m.content for m in final_state["messages"] if isinstance(m, ToolMessage)
     ]
-    
     final_answer = final_state["messages"][-1].content
     
     return AgentRunResponse(
