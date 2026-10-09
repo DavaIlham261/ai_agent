@@ -12,13 +12,18 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from app.auth import verify_api_key
 from app.graph import agent_graph
 from app.redis_client import load_session, save_session
-from app.projects import PROJECTS, get_project
+from app.projects import PROJECTS, get_project, register_project
 from app.mcp_client import fetch_mcp_tools, MCPUnreachableError
 from app.nodes import LOCAL_TOOLS_SCHEMA, NodeTimeoutError
 
 logger = logging.getLogger("agent")
 app = FastAPI(title="AI Agent Backend", description="Backend API for AI Agent", version="1.0.0")
 
+class ProjectRegisterRequest(BaseModel):
+    project_id: str = Field(..., min_length=1)
+    tailscale_ip: str = Field(..., min_length=1)
+    port: int = Field(..., gt=0, lt=65536)
+    root_path: str = Field(default="/app/workspace")
 
 class AgentRunRequest(BaseModel):
     prompt: str = Field(..., min_length=1)
@@ -58,6 +63,10 @@ async def check_mcp_server(project_id: str, project: dict) -> str:
     except MCPUnreachableError:
         return "unreachable"
 
+@app.post("/api/v1/projects/register", dependencies=[Depends(verify_api_key)])
+async def register_project_endpoint(payload: ProjectRegisterRequest):
+    register_project(payload.project_id, payload.tailscale_ip, payload.port, payload.root_path)
+    return {"status": "registered", "project_id": payload.project_id}
 
 @app.get("/health")
 async def health_check():

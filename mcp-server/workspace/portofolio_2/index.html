@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Portofolio AI Agent Developer - Membangun solusi berkecerdasan buatan yang berdaya guna.">
+    <title>AI Agent Developer | Portofolio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- ===== HEADER / NAV ===== -->
+    <header class="site-header">
+        <nav class="nav container">
+            <a href="#hero" class="nav__logo">
+                <span class="logo-mark">A</span>
+                <span class="logo-text">Agent<span class="neon-blue">.dev</span></span>
+            </a>
+
+            <button class="nav__toggle" id="nav-toggle" aria-label="Buka menu" aria-expanded="false">
+                <span class="nav__toggle-bar"></span>
+                <span class="nav__toggle-bar"></span>
+                <span class="nav__toggle-bar"></span>
+            </button>
+
+            <ul class="nav__menu" id="nav-menu">
+                <li><a href="#hero" class="nav__link">Beranda</a></li>
+                <li><a href="#tentang" class="nav__link">Tentang</a></li>
+                <li><a href="#fitur" class="nav__link">Fitur</a></li>
+                <li><a href="#tech-stack" class="nav__link">Tech Stack</a></li>
+                <li><a href="#kontak" class="nav__link nav__link--cta">Hubungi Saya</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <!-- ===== HERO ===== -->
+        <section id="hero" class="section section--hero">
+            <div class="hero__inner container">
+                <div class="hero__badge glass-card">
+                    <span class="pulse-dot"></span>
+                    <span>Sediaan untuk proyek agentic baru</span>
+                </div>
+
+                <h1 class="hero__title">
+                    Halo, saya <span class="gradient-text">AI Agent</span><br>
+                    <span id="typewriter" class="typewriter"></span>
+                </h1>
+
+                <p class="hero__subtitle" id="typewriter-sub">
+                    Saya membangun agen berkecerdasan buatan yang otonom, andal, dan siap menangani tugas kompleks secara end-to-end.
+                </p>
+
+                <div class="hero__cta">
+                    <a href="#tentang" class="btn btn--primary">Lihat Portofolio <span aria-hidden="true">&rarr;</span></a>
+                    <a href="#kontak" class="btn btn--ghost">Jalankan Konsultasi</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== TENTANG ===== -->
+        <section id="tentang" class="section section--tentang">
+            <div class="container">
+                <h2 class="section__title reveal">Tentang Saya</h2>
+                <span class="neon-blue">Kreatif</span>
+                <div class="tentang__grid">
+                    <div class="tentang__avatar glass-card">
+                        <img src="https://via.placeholder.com/300x300.png?text=Avatar" alt="Avatar" loading="lazy">
+                    </div>
+                    <div class="tentang__bio reveal">
+                        <p>Saya adalah pengembang AI berpengalaman dengan fokus pada pembuatan agen otonom yang dapat belajar, beradaptasi, dan mengeksekusi tugas secara mandiri. Menguasai Python, LangChain, OpenAI API, serta integrasi cloud-native.</p>
+                        <p>Berpengalaman dalam merancang arsitektur multi‑agent, prompt engineering, serta evaluasi performa model. Selalu mencari tantangan baru dalam menciptakan solusi AI yang inovatif.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== FITUR ===== -->
+        <section id="fitur" class="section section--fitur">
+            <div class="container">
+                <h2 class="section__title reveal">Fitur Utama</h2>
+                <div class="fitur__grid">
+                    <div class="fitur__card glass-card reveal">
+                        <h3>Otomatisasi End‑to‑End</h3>
+                        <p>Pipeline lengkap dari data ingest sampai eksekusi aksi.</p>
+                    </div>
+                    <div class="fitur__card glass-card reveal">
+                        <h3>Adaptasi Kontekstual</h3>
+                        <p>Agent menyesuaikan diri dengan konteks pengguna secara real‑time.</p>
+                    </div>
+                    <div class="fitur__card glass-card reveal">
+                        <h3>Skalabilitas Cloud‑Native</h3>
+                        <p>Mudah dideploy pada serverless atau Kubernetes.</p>
+                    </div>
+                    <div class="fitur__card glass-card reveal">
+                        <h3>Keamanan & Privasi</h3>
+                        <p>Enkripsi data, kontrol akses granular, dan audit log.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== TECH STACK ===== -->
+        <section id="tech-stack" class="section section--tech">
+            <div class="container">
+                <h2 class="section__title reveal">Tech Stack</h2>
+                <div class="tech__badges">
+                    <span class="badge neon-blue">Python</span>
+                    <span class="badge neon-blue">LangChain</span>
+                    <span class="badge neon-blue">OpenAI API</span>
+                    <span class="badge neon-yellow">Docker</span>
+                    <span class="badge neon-yellow">Kubernetes</span>
+                    <span class="badge neon-yellow">FastAPI</span>
+                    <span class="badge neon-blue">Node.js</span>
+                    <span class="badge neon-yellow">React</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== FOOTER ===== -->
+        <footer class="site-footer">
+            <div class="container footer__inner">
+                <a href="#hero" class="footer__logo">
+                    <span class="logo-mark">A</span>
+                    <span class="logo-text neon-blue">Agent.dev</span>
+                </a>
+                <p class="footer__copy">© 2024 AI Agent Developer. Semua hak dilindungi.</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
