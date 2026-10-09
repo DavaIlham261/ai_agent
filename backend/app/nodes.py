@@ -43,12 +43,12 @@ PLANNER_SYSTEM_PROMPT = (
     "tanpa teks lain, tanpa markdown code block. Tiap object: "
     '{"description": "...", "confirm_after": true/false}. '
     "confirm_after=true HANYA untuk langkah yang menandai selesainya satu FASE besar yang "
-    "layak dicek user sebelum lanjut (misal: setelah HTML+CSS selesai, sebelum mulai JS). "
-    "Langkah kecil dalam fase yang sama pakai confirm_after=false supaya lanjut otomatis "
-    "tanpa menunggu user. Buat 3-6 langkah. Contoh: "
-    '[{"description": "Buat index.html struktur dasar", "confirm_after": false}, '
-    '{"description": "Buat style.css lengkap", "confirm_after": true}, '
-    '{"description": "Buat script.js interaktivitas", "confirm_after": false}]'
+    "layak dicek user sebelum lanjut. Langkah kecil dalam fase yang sama pakai "
+    "confirm_after=false. SELALU sertakan satu langkah terakhir: 'Validasi tiap file HTML/"
+    "CSS/JS yang dibuat memakai tool validate_file, perbaiki kalau ada error' dengan "
+    "confirm_after=true. JANGAN membuat langkah 'uji tampilan' yang tidak bisa dieksekusi "
+    "lewat tool apa pun — gunakan validate_file sebagai satu-satunya bentuk verifikasi nyata. "
+    "Buat 3-6 langkah."
 )
 
 # Tool "lokal" — bukan dari MCP, ditangani langsung di tool_executor_node,
